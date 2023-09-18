@@ -21,7 +21,8 @@ Crate features
 
 Types that directly correspond with Rust’s standard atomics like
 [`AtomicU64`] are available with the feature `primitives` (enabled by
-default).
+default). This includes [`AtomicPtr`], even though it isn't exactly an
+integer.
 
 Atomic C integer types like [`AtomicCInt`] and [`AtomicCUlong`] are
 available with the feature `c` (enabled by default). For more granularity,
@@ -46,6 +47,7 @@ This crate is `no_std` when `libc` is not enabled.
 [`libc`]: https://docs.rs/libc/0.2
 [`c_int`]: https://doc.rust-lang.org/stable/core/ffi/type.c_int.html
 [`AtomicU64`]: https://docs.rs/atomic-int/0.1/atomic_int/type.AtomicU64.html
+[`AtomicPtr`]: https://docs.rs/atomic-int/0.1/atomic_int/type.AtomicPtr.html
 [`AtomicCInt`]: https://docs.rs/atomic-int/0.1/atomic_int/type.AtomicCInt.html
 [`AtomicCUlong`]: https://docs.rs/atomic-int/0.1/atomic_int/type.AtomicCUlong.html
 [`core::ffi`]: https://doc.rust-lang.org/stable/core/ffi/
