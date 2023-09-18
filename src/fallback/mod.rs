@@ -80,17 +80,13 @@ macro_rules! define_fallback {
             }
 
             fn lock(&self, order: Ordering) -> Guard<'_, $type> {
-                let success = match order {
-                    Ordering::SeqCst => Ordering::SeqCst,
-                    _ => Ordering::Acquire,
-                };
                 let signal = SignalGuard::new();
                 while self
                     .lock
                     .compare_exchange_weak(
                         false,
                         true,
-                        success,
+                        Ordering::Acquire,
                         Ordering::Relaxed,
                     )
                     .is_err()
