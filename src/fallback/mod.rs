@@ -84,6 +84,7 @@ macro_rules! define_fallback {
                     Ordering::SeqCst => Ordering::SeqCst,
                     _ => Ordering::Acquire,
                 };
+                let signal = SignalGuard::new();
                 while self
                     .lock
                     .compare_exchange_weak(
@@ -104,7 +105,7 @@ macro_rules! define_fallback {
                     value: unsafe { &mut *self.value.get() },
                     lock: &self.lock,
                     order,
-                    _signal: SignalGuard::new(),
+                    _signal: signal,
                 }
             }
 
