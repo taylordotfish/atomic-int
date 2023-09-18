@@ -1,0 +1,50 @@
+[package]
+name = "atomic-int"
+version = "0.1.0"
+edition = "2018"
+# The minimum required Rust version is 1.64 by default, but less if `libc` is
+# enabled. There currently isn't a way to encode this in Cargo.toml.
+description = "Atomics for additional integers, like C/FFI types"
+documentation = "https://docs.rs/atomic-int"
+readme = "misc/crate-readme.md"
+repository = "https://github.com/taylordotfish/atomic-int"
+license = "Apache-2.0"
+keywords = ["atomic", "integer", "libc", "c_int", "fallback"]
+categories = ["no-std"]
+
+[dependencies.libc]
+version = "0.2"
+optional = true
+
+[features]
+default = ["primitives", "c"]
+signal = ["libc"]
+primitives = []
+c = [
+    "c_char",
+    "c_schar",
+    "c_uchar",
+    "c_short",
+    "c_ushort",
+    "c_int",
+    "c_uint",
+    "c_long",
+    "c_ulong",
+    "c_longlong",
+    "c_ulonglong",
+]
+c_char = []
+c_schar = []
+c_uchar = []
+c_short = []
+c_ushort = []
+c_int = []
+c_uint = []
+c_long = []
+c_ulong = []
+c_longlong = []
+c_ulonglong = []
+doc_cfg = []
+
+[package.metadata.docs.rs]
+features = ["doc_cfg"]
