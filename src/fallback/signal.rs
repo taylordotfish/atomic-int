@@ -16,8 +16,16 @@
  * limitations under the License.
  */
 
+//! All functions in this module must be async-signal-safe.
+
 use core::mem::MaybeUninit;
 use core::ptr;
+
+fn stderr(msg: &[u8]) {
+    unsafe {
+        libc::write(libc::STDERR_FILENO, msg.as_ptr().cast(), msg.len());
+    }
+}
 
 pub struct SignalGuard(libc::sigset_t);
 
@@ -26,12 +34,19 @@ impl SignalGuard {
         let mut new_set = MaybeUninit::uninit();
         let mut old_set = MaybeUninit::uninit();
         unsafe {
-            libc::sigfillset(new_set.as_mut_ptr());
-            libc::pthread_sigmask(
+            if libc::sigfillset(new_set.as_mut_ptr()) != 0 {
+                stderr(b"[new] sigfillset() failed\n");
+                libc::abort();
+            }
+            if libc::pthread_sigmask(
                 libc::SIG_SETMASK,
                 new_set.as_ptr(),
                 old_set.as_mut_ptr(),
-            );
+            ) != 0
+            {
+                stderr(b"[new] pthread_sigmask() failed\n");
+                libc::abort();
+            }
         }
         // SAFETY: `pthread_sigmask` initializes `old_set`.
         Self(unsafe { old_set.assume_init() })
@@ -41,11 +56,15 @@ impl SignalGuard {
 impl Drop for SignalGuard {
     fn drop(&mut self) {
         unsafe {
-            libc::pthread_sigmask(
+            if libc::pthread_sigmask(
                 libc::SIG_SETMASK,
                 &self.0 as _,
                 ptr::null_mut(),
-            );
+            ) != 0
+            {
+                stderr(b"[drop] pthread_sigmask() failed\n");
+                libc::abort();
+            }
         }
     }
 }
