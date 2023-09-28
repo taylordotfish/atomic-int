@@ -147,12 +147,10 @@ macro_rules! define_fallback {
                 new: $type,
                 order: Ordering,
             ) -> $type {
-                let mut guard = self.lock(order);
-                let prev = *guard;
-                if prev == current {
-                    *guard = new;
+                match self.compare_exchange(current, new, order, order) {
+                    Ok(prev) => prev,
+                    Err(prev) => prev,
                 }
-                prev
             }
 
             /// Stores a value into the atomic if the current value is the same
@@ -165,11 +163,13 @@ macro_rules! define_fallback {
                 success: Ordering,
                 failure: Ordering,
             ) -> Result<$type, $type> {
-                let _ = failure;
-                let prev = self.compare_and_swap(current, new, success);
+                let mut guard = self.lock(success);
+                let prev = *guard;
                 if prev == current {
+                    *guard = new;
                     Ok(prev)
                 } else {
+                    guard.order = failure;
                     Err(prev)
                 }
             }
