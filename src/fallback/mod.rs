@@ -303,8 +303,8 @@ macro_rules! define_fallback_int {
 }
 
 macro_rules! define_primitive_fallback {
-    ($atomic:ident, $int:ident, $bits:literal) => {
-        #[cfg(any(doc, not(target_has_atomic = $bits)))]
+    ($atomic:ident, $int:ident, $($cfg:tt)*) => {
+        #[cfg(any(doc, not($($cfg)*)))]
         define_fallback_int!(
             $atomic,
             $int,

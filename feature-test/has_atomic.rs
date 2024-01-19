@@ -37,8 +37,6 @@ impl_has_atomic!(u32, "32");
 impl_has_atomic!(i32, "32");
 impl_has_atomic!(u64, "64");
 impl_has_atomic!(i64, "64");
-impl_has_atomic!(u128, "128");
-impl_has_atomic!(i128, "128");
 impl_has_atomic!(usize, "ptr");
 impl_has_atomic!(isize, "ptr");
 

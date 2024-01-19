@@ -88,24 +88,24 @@ use detail::HasAtomic;
 
 macro_rules! with_primitive_atomics {
     ($macro:path) => {
-        $macro!(AtomicI8, i8, "8");
-        $macro!(AtomicU8, u8, "8");
-        $macro!(AtomicI16, i16, "16");
-        $macro!(AtomicU16, u16, "16");
-        $macro!(AtomicI32, i32, "32");
-        $macro!(AtomicU32, u32, "32");
-        $macro!(AtomicI64, i64, "64");
-        $macro!(AtomicU64, u64, "64");
-        $macro!(AtomicI128, i128, "128");
-        $macro!(AtomicU128, u128, "128");
-        $macro!(AtomicIsize, isize, "ptr");
-        $macro!(AtomicUsize, usize, "ptr");
+        $macro!(AtomicI8, i8, target_has_atomic = "8");
+        $macro!(AtomicU8, u8, target_has_atomic = "8");
+        $macro!(AtomicI16, i16, target_has_atomic = "16");
+        $macro!(AtomicU16, u16, target_has_atomic = "16");
+        $macro!(AtomicI32, i32, target_has_atomic = "32");
+        $macro!(AtomicU32, u32, target_has_atomic = "32");
+        $macro!(AtomicI64, i64, target_has_atomic = "64");
+        $macro!(AtomicU64, u64, target_has_atomic = "64");
+        $macro!(AtomicI128, i128, any());
+        $macro!(AtomicU128, u128, any());
+        $macro!(AtomicIsize, isize, target_has_atomic = "ptr");
+        $macro!(AtomicUsize, usize, target_has_atomic = "ptr");
     };
 }
 
 macro_rules! impl_has_atomic {
-    ($atomic:ident, $int:ident, $bits:literal) => {
-        #[cfg(target_has_atomic = $bits)]
+    ($atomic:ident, $int:ident, $($cfg:tt)*) => {
+        #[cfg($($cfg)*)]
         impl HasAtomic for $int {
             type Atomic = atomic::$atomic;
         }
@@ -116,11 +116,11 @@ with_primitive_atomics!(impl_has_atomic);
 
 #[allow(unused_macros)]
 macro_rules! define_primitive_atomic {
-    ($atomic:ident$(<$generic:ident>)?, $type:ty, $bits:literal) => {
-        #[cfg(all(not(doc), target_has_atomic = $bits))]
+    ($atomic:ident$(<$generic:ident>)?, $type:ty, $($cfg:tt)*) => {
+        #[cfg(all(not(doc), $($cfg)*))]
         pub type $atomic$(<$generic>)? = atomic::$atomic$(<$generic>)?;
 
-        #[cfg(any(doc, not(target_has_atomic = $bits)))]
+        #[cfg(any(doc, not($($cfg)*)))]
         #[cfg_attr(feature = "doc_cfg", doc(cfg(feature = "primitives")))]
         /// An atomic
         #[doc = concat!("[`", stringify!($type), "`].")]
@@ -137,7 +137,7 @@ macro_rules! define_primitive_atomic {
 with_primitive_atomics!(define_primitive_atomic);
 
 #[cfg(feature = "primitives")]
-define_primitive_atomic!(AtomicPtr<T>, *mut T, "ptr");
+define_primitive_atomic!(AtomicPtr<T>, *mut T, target_has_atomic = "ptr");
 
 #[cfg(feature = "primitives")]
 #[cfg_attr(feature = "doc_cfg", doc(cfg(feature = "primitives")))]
