@@ -86,7 +86,10 @@ macro_rules! define_fallback {
                     .compare_exchange_weak(
                         false,
                         true,
-                        Ordering::Acquire,
+                        match order {
+                            Ordering::SeqCst => Ordering::SeqCst,
+                            _ => Ordering::Acquire,
+                        },
                         Ordering::Relaxed,
                     )
                     .is_err()
