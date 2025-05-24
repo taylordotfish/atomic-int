@@ -49,5 +49,21 @@ c_longlong = []
 c_ulonglong = []
 doc_cfg = []
 
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [
+    "cfg(has_c_char_atomic)",
+    "cfg(has_c_schar_atomic)",
+    "cfg(has_c_uchar_atomic)",
+    "cfg(has_c_short_atomic)",
+    "cfg(has_c_ushort_atomic)",
+    "cfg(has_c_int_atomic)",
+    "cfg(has_c_uint_atomic)",
+    "cfg(has_c_long_atomic)",
+    "cfg(has_c_ulong_atomic)",
+    "cfg(has_c_longlong_atomic)",
+    "cfg(has_c_ulonglong_atomic)",
+]
+
 [package.metadata.docs.rs]
 features = ["doc_cfg"]
