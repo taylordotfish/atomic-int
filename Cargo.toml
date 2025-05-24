@@ -1,9 +1,12 @@
 [package]
 name = "atomic-int"
-version = "0.1.4"
+version = "0.1.5-dev"
 edition = "2018"
-# The minimum required Rust version is 1.64 by default, but less if `libc` is
-# enabled. There currently isn't a way to encode this in Cargo.toml.
+# If `libc` isn't enabled, the minimum supported Rust version is actually 1.64,
+# but there currently isn't a way to encode this in Cargo.toml. Also, libc
+# changed its MSRV to 1.63 in version 0.2.164, but this crate can be used with
+# older libc versions if manually specified with `cargo update`.
+rust-version = "1.60"
 description = "Atomics for additional integers, like C/FFI types"
 documentation = "https://docs.rs/atomic-int"
 readme = "misc/crate-readme.md"

@@ -52,13 +52,10 @@ impl<'a, T> DerefMut for Guard<'a, T> {
 
 impl<'a, T> Drop for Guard<'a, T> {
     fn drop(&mut self) {
-        self.lock.store(
-            false,
-            match self.order {
-                Ordering::SeqCst => Ordering::SeqCst,
-                _ => Ordering::Release,
-            },
-        );
+        self.lock.store(false, match self.order {
+            Ordering::SeqCst => Ordering::SeqCst,
+            _ => Ordering::Release,
+        });
     }
 }
 
