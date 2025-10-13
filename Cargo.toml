@@ -1,6 +1,6 @@
 [package]
 name = "atomic-int"
-version = "0.1.5-dev"
+version = "0.1.5"
 edition = "2018"
 # If `libc` isn't enabled, the minimum supported Rust version is actually 1.64,
 # but there currently isn't a way to encode this in Cargo.toml. Also, libc
@@ -47,23 +47,8 @@ c_long = []
 c_ulong = []
 c_longlong = []
 c_ulonglong = []
+force-fallback = []
 doc_cfg = []
-
-[lints.rust.unexpected_cfgs]
-level = "warn"
-check-cfg = [
-    "cfg(has_c_char_atomic)",
-    "cfg(has_c_schar_atomic)",
-    "cfg(has_c_uchar_atomic)",
-    "cfg(has_c_short_atomic)",
-    "cfg(has_c_ushort_atomic)",
-    "cfg(has_c_int_atomic)",
-    "cfg(has_c_uint_atomic)",
-    "cfg(has_c_long_atomic)",
-    "cfg(has_c_ulong_atomic)",
-    "cfg(has_c_longlong_atomic)",
-    "cfg(has_c_ulonglong_atomic)",
-]
 
 [package.metadata.docs.rs]
 features = ["doc_cfg"]

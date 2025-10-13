@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 taylor.fish <contact@taylor.fish>
+ * Copyright 2023, 2025 taylor.fish <contact@taylor.fish>
  *
  * This file is part of atomic-int.
  *
@@ -35,6 +35,10 @@
 //! available on all platforms[^1] in some form—either the built-in or fallback
 //! implementation.
 //!
+//! [^1]: As long as the platform supports [`AtomicBool`], and compare-and-swap
+//!       operations on [`AtomicBool`], which are required for the fallback
+//!       implementation.
+//!
 //! Crate features
 //! --------------
 //!
@@ -49,7 +53,8 @@
 //!
 //! The spinlock-based fallback implementation can cause deadlocks with signal
 //! handlers. To avoid this, enable the feature `signal`, which blocks incoming
-//! signals while the lock is held. This feature is Unix-specific.
+//! signals while the lock is held. This feature is Unix-specific; on
+//! non-Unix-like operating systems it is a no-op.
 //!
 //! atomic-int can optionally depend on [`libc`]. If this dependency is
 //! enabled, atomic-int will use the C integer types from [`libc`] instead of
@@ -58,10 +63,16 @@
 //! to [`core::ffi`] only in version 1.64. The feature `signal` always enables
 //! `libc`.
 //!
-//! This crate is `no_std` when `libc` is not enabled.
+//! For development purposes, the feature `force-fallback` is provided. This
+//! forces the fallback implementation to be used for all atomics, which can
+//! help you ensure your program doesn’t rely on functionality only provided by
+//! the native atomic types. It should not normally be enabled outside of
+//! testing.
 //!
-//! [^1]: As long as the platform supports [`AtomicBool`], which is required
-//!       for the fallback implementation.
+//! Use without `std`
+//! -----------------
+//!
+//! This crate is `no_std` when `libc` is not enabled.
 //!
 //! [`libc`]: https://docs.rs/libc/0.2
 //! [`c_int`]: ffi::c_int
@@ -70,65 +81,119 @@
 #[allow(unused_imports)]
 use core::sync::atomic;
 
-#[allow(unused_imports)]
 #[cfg(not(feature = "libc"))]
 use core::ffi;
 
-#[allow(unused_imports)]
 #[cfg(feature = "libc")]
 use libc as ffi;
 
+#[allow(unused_imports)]
+use ffi as _;
+
 mod detail {
-    pub trait HasAtomic {
-        type Atomic;
+    pub trait GetAtomicOrFallback {
+        type Type;
+    }
+
+    pub struct AtomicOrFallback<T, Fallback, const HAS_ATOMIC: bool>(
+        core::marker::PhantomData<fn() -> (T, Fallback)>,
+    );
+
+    impl<T, Fallback> GetAtomicOrFallback
+        for AtomicOrFallback<T, Fallback, false>
+    {
+        type Type = Fallback;
     }
 }
 
-use detail::HasAtomic;
+#[allow(dead_code)]
+use detail::{AtomicOrFallback, GetAtomicOrFallback};
+
+#[allow(dead_code)]
+struct AtomicMeta<T>(core::marker::PhantomData<fn() -> T>);
+
+#[allow(dead_code)]
+trait DefaultAtomicMeta {
+    const HAS_ATOMIC: bool = false;
+}
+
+impl<T> DefaultAtomicMeta for AtomicMeta<T> {}
 
 macro_rules! with_primitive_atomics {
     ($macro:path) => {
-        $macro!(AtomicI8, i8, target_has_atomic = "8");
-        $macro!(AtomicU8, u8, target_has_atomic = "8");
-        $macro!(AtomicI16, i16, target_has_atomic = "16");
-        $macro!(AtomicU16, u16, target_has_atomic = "16");
-        $macro!(AtomicI32, i32, target_has_atomic = "32");
-        $macro!(AtomicU32, u32, target_has_atomic = "32");
-        $macro!(AtomicI64, i64, target_has_atomic = "64");
-        $macro!(AtomicU64, u64, target_has_atomic = "64");
-        $macro!(AtomicI128, i128, any());
-        $macro!(AtomicU128, u128, any());
-        $macro!(AtomicIsize, isize, target_has_atomic = "ptr");
-        $macro!(AtomicUsize, usize, target_has_atomic = "ptr");
+        $macro!(AtomicI8, i8, [target_has_atomic = "8"], "");
+        $macro!(AtomicU8, u8, [target_has_atomic = "8"], "");
+        $macro!(AtomicI16, i16, [target_has_atomic = "16"], "");
+        $macro!(AtomicU16, u16, [target_has_atomic = "16"], "");
+        $macro!(AtomicI32, i32, [target_has_atomic = "32"], "");
+        $macro!(AtomicU32, u32, [target_has_atomic = "32"], "");
+        $macro!(AtomicI64, i64, [target_has_atomic = "64"], "");
+        $macro!(AtomicU64, u64, [target_has_atomic = "64"], "");
+        $macro!(
+            AtomicI128,
+            i128,
+            [any()],
+            "**Note:** Because 128-bit atomics are unstable, this type is \
+            always a spinlock-based fallback. This may change in a future \
+            version of this crate."
+        );
+        $macro!(
+            AtomicU128,
+            u128,
+            [any()],
+            "**Note:** Because 128-bit atomics are unstable, this type is \
+            always a spinlock-based fallback. This may change in a future \
+            version of this crate."
+        );
+        $macro!(AtomicIsize, isize, [target_has_atomic = "ptr"], "");
+        $macro!(AtomicUsize, usize, [target_has_atomic = "ptr"], "");
     };
 }
 
-macro_rules! impl_has_atomic {
-    ($atomic:ident, $int:ident, $($cfg:tt)*) => {
-        #[cfg($($cfg)*)]
-        impl HasAtomic for $int {
-            type Atomic = atomic::$atomic;
+macro_rules! impl_atomic_meta {
+    ($atomic:ident, $int:ident, [$($cfg:tt)*], $($x:tt)*) => {
+        #[cfg(all(not(feature = "force-fallback"), $($cfg)*))]
+        #[allow(dead_code)]
+        impl AtomicMeta<$int> {
+            pub const HAS_ATOMIC: bool = true;
+        }
+
+        #[cfg(all(not(feature = "force-fallback"), $($cfg)*))]
+        impl<Fallback> GetAtomicOrFallback
+            for AtomicOrFallback<$int, Fallback, true>
+        {
+            type Type = atomic::$atomic;
         }
     };
 }
 
-with_primitive_atomics!(impl_has_atomic);
+with_primitive_atomics!(impl_atomic_meta);
 
 #[allow(unused_macros)]
 macro_rules! define_primitive_atomic {
-    ($atomic:ident$(<$generic:ident>)?, $type:ty, $($cfg:tt)*) => {
-        #[cfg(all(not(doc), $($cfg)*))]
+    (
+        $atomic:ident$(<$generic:ident>)?,
+        $type:ty,
+        [$($cfg:tt)*],
+        $doc:expr
+    ) => {
+        #[cfg(all(not(doc), not(feature = "force-fallback"), $($cfg)*))]
         pub type $atomic$(<$generic>)? = atomic::$atomic$(<$generic>)?;
 
-        #[cfg(any(doc, not($($cfg)*)))]
+        #[cfg(any(doc, feature = "force-fallback", not($($cfg)*)))]
         #[cfg_attr(feature = "doc_cfg", doc(cfg(feature = "primitives")))]
         /// An atomic
         #[doc = concat!("[`", stringify!($type), "`].")]
         ///
         /// This is either an alias to the type in [`core::sync::atomic`], or,
-        /// if not available, a spinlock-based fallback type.
+        /// if not available[^1], a spinlock-based fallback type.
         ///
-        /// [`*mut T`]: pointer
+        /// [^1]: If an appropriate type exists in [`core::sync::atomic`], but
+        /// compare-and-swap operations are not provided for it (i.e., only
+        /// loads and stores are supported), it is still considered to be "not
+        /// available" for the purposes of this crate.
+        ///
+        #[doc = $doc]
         pub type $atomic$(<$generic>)? = fallback::$atomic$(<$generic>)?;
     };
 }
@@ -137,7 +202,12 @@ macro_rules! define_primitive_atomic {
 with_primitive_atomics!(define_primitive_atomic);
 
 #[cfg(feature = "primitives")]
-define_primitive_atomic!(AtomicPtr<T>, *mut T, target_has_atomic = "ptr");
+define_primitive_atomic!(
+    AtomicPtr<T>,
+    *mut T,
+    [target_has_atomic = "ptr"],
+    "[`*mut T`]: pointer"
+);
 
 #[cfg(feature = "primitives")]
 #[cfg_attr(feature = "doc_cfg", doc(cfg(feature = "primitives")))]
@@ -153,54 +223,62 @@ pub type AtomicBool = atomic::AtomicBool;
 macro_rules! with_c_atomics {
     ($macro:path) => {
         #[cfg(feature = "c_char")]
-        $macro!(AtomicCChar, c_char, "c_char", has_c_char_atomic);
+        $macro!(AtomicCChar, c_char, "c_char");
         #[cfg(feature = "c_schar")]
-        $macro!(AtomicCSchar, c_schar, "c_schar", has_c_schar_atomic);
+        $macro!(AtomicCSchar, c_schar, "c_schar");
         #[cfg(feature = "c_uchar")]
-        $macro!(AtomicCUchar, c_uchar, "c_uchar", has_c_uchar_atomic);
+        $macro!(AtomicCUchar, c_uchar, "c_uchar");
         #[cfg(feature = "c_short")]
-        $macro!(AtomicCShort, c_short, "c_short", has_c_short_atomic);
+        $macro!(AtomicCShort, c_short, "c_short");
         #[cfg(feature = "c_ushort")]
-        $macro!(AtomicCUshort, c_ushort, "c_ushort", has_c_ushort_atomic);
+        $macro!(AtomicCUshort, c_ushort, "c_ushort");
         #[cfg(feature = "c_int")]
-        $macro!(AtomicCInt, c_int, "c_int", has_c_int_atomic);
+        $macro!(AtomicCInt, c_int, "c_int");
         #[cfg(feature = "c_uint")]
-        $macro!(AtomicCUint, c_uint, "c_uint", has_c_uint_atomic);
+        $macro!(AtomicCUint, c_uint, "c_uint");
         #[cfg(feature = "c_long")]
-        $macro!(AtomicCLong, c_long, "c_long", has_c_long_atomic);
+        $macro!(AtomicCLong, c_long, "c_long");
         #[cfg(feature = "c_ulong")]
-        $macro!(AtomicCUlong, c_ulong, "c_ulong", has_c_ulong_atomic);
+        $macro!(AtomicCUlong, c_ulong, "c_ulong");
         #[cfg(feature = "c_longlong")]
-        $macro!(
-            AtomicCLonglong,
-            c_longlong,
-            "c_longlong",
-            has_c_longlong_atomic
-        );
+        $macro!(AtomicCLonglong, c_longlong, "c_longlong");
         #[cfg(feature = "c_ulonglong")]
-        $macro!(
-            AtomicCUlonglong,
-            c_ulonglong,
-            "c_ulonglong",
-            has_c_ulonglong_atomic
-        );
+        $macro!(AtomicCUlonglong, c_ulonglong, "c_ulonglong");
     };
 }
 
 #[allow(unused_macros)]
-macro_rules! define_c_atomic {
-    ($atomic:ident, $int:ident, $feature:literal, $cfg:ident) => {
-        #[cfg(all(not(doc), $cfg))]
-        pub type $atomic = <ffi::$int as HasAtomic>::Atomic;
+macro_rules! alias_c_type {
+    ($atomic:ident, $int:ident, $($x:tt)*) => {
+        #[allow(clippy::incompatible_msrv)] // see note in Cargo.toml
+        #[allow(non_camel_case_types)]
+        pub type $int = super::ffi::$int;
+    };
+}
 
-        #[cfg(any(doc, not($cfg)))]
+mod c_types {
+    with_c_atomics!(alias_c_type);
+}
+
+#[allow(unused_macros)]
+macro_rules! define_c_atomic {
+    ($atomic:ident, $int:ident, $feature:literal) => {
+        #[cfg(not(doc))]
+        pub type $atomic = <AtomicOrFallback<
+            c_types::$int,
+            fallback::$atomic,
+            { AtomicMeta::<c_types::$int>::HAS_ATOMIC },
+        > as GetAtomicOrFallback>::Type;
+
+        #[cfg(doc)]
         #[cfg_attr(feature = "doc_cfg", doc(cfg(feature = $feature)))]
         /// An atomic
         #[doc = concat!("[`", stringify!($int), "`][1].")]
         ///
         /// This is either an alias to the appropriate atomic integer type in
         /// [`core::sync::atomic`], or a spinlock-based fallback type.
-        #[doc = concat!("\n\n[1]: ffi::", stringify!($int))]
+        ///
+        #[doc = concat!("[1]: ffi::", stringify!($int))]
         pub type $atomic = fallback::$atomic;
     };
 }
@@ -209,7 +287,6 @@ with_c_atomics!(define_c_atomic);
 
 mod fallback;
 
-#[rustfmt::skip]
 #[cfg(doc)]
 #[cfg_attr(feature = "doc_cfg", doc(cfg(doc)))]
 /// An example fallback implementation of an atomic integer.
@@ -228,7 +305,6 @@ mod fallback;
 /// This type is exposed only in the documentation for illustrative purposes.
 pub use fallback::AtomicFallback;
 
-#[rustfmt::skip]
 #[cfg(doc)]
 #[cfg_attr(feature = "doc_cfg", doc(cfg(doc)))]
 /// An example fallback implementation of an atomic pointer.

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 taylor.fish <contact@taylor.fish>
+ * Copyright 2023, 2025 taylor.fish <contact@taylor.fish>
  *
  * This file is part of atomic-int.
  *
@@ -24,8 +24,7 @@ use core::ops::{Deref, DerefMut};
 use core::sync::atomic;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-#[allow(dead_code)]
-#[cfg_attr(not(feature = "signal"), path = "signal_none.rs")]
+#[cfg_attr(not(all(feature = "signal", unix)), path = "signal_none.rs")]
 mod signal;
 use signal::SignalGuard;
 
@@ -58,6 +57,10 @@ impl<'a, T> Drop for Guard<'a, T> {
         });
     }
 }
+
+#[allow(dead_code)]
+#[allow(unused_imports)]
+use Guard as _;
 
 macro_rules! define_fallback {
     ($atomic:ident$(<$generic:ident>)?, $type:ty, $doc:expr) => {
@@ -303,8 +306,8 @@ macro_rules! define_fallback_int {
 }
 
 macro_rules! define_primitive_fallback {
-    ($atomic:ident, $int:ident, $($cfg:tt)*) => {
-        #[cfg(any(doc, not($($cfg)*)))]
+    ($atomic:ident, $int:ident, [$($cfg:tt)*], $($x:tt)*) => {
+        #[cfg(any(doc, feature = "force-fallback", not($($cfg)*)))]
         define_fallback_int!(
             $atomic,
             $int,
@@ -317,15 +320,14 @@ macro_rules! define_primitive_fallback {
 with_primitive_atomics!(define_primitive_fallback);
 
 #[cfg(feature = "primitives")]
-#[cfg(any(doc, not(target_has_atomic = "ptr")))]
+#[cfg(any(doc, feature = "force-fallback", not(target_has_atomic = "ptr")))]
 define_fallback!(AtomicPtr<T>, *mut T, "See [`atomic::AtomicPtr");
 
 macro_rules! define_c_fallback {
-    ($atomic:ident, $int:ident, $feature:literal, $cfg:ident) => {
-        #[cfg(any(doc, not($cfg)))]
+    ($atomic:ident, $int:ident, $($x:tt)*) => {
         define_fallback_int!(
             $atomic,
-            super::ffi::$int,
+            super::c_types::$int,
             "See, e.g., [`atomic::AtomicI32"
         );
     };
@@ -338,3 +340,8 @@ define_fallback_int!(AtomicFallback, i32, "See, e.g., [`atomic::AtomicI32");
 
 #[cfg(doc)]
 define_fallback!(AtomicFallbackPtr<T>, *mut T, "See [`atomic::AtomicPtr");
+
+#[allow(dead_code)]
+fn allow_unused() {
+    let _ = SignalGuard::new;
+}

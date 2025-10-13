@@ -16,6 +16,10 @@ supported on a given platform. Thus, all atomics provided by this crate are
 available on all platforms[^1] in some form—either the built-in or fallback
 implementation.
 
+[^1]: As long as the platform supports [`AtomicBool`], and compare-and-swap
+      operations on [`AtomicBool`], which are required for the fallback
+      implementation.
+
 Crate features
 --------------
 
@@ -30,7 +34,8 @@ a separate feature exists for each C integer (e.g., `c_int` and `c_ulong`).
 
 The spinlock-based fallback implementation can cause deadlocks with signal
 handlers. To avoid this, enable the feature `signal`, which blocks incoming
-signals while the lock is held. This feature is Unix-specific.
+signals while the lock is held. This feature is Unix-specific; on
+non-Unix-like operating systems it is a no-op.
 
 atomic-int can optionally depend on [`libc`]. If this dependency is
 enabled, atomic-int will use the C integer types from [`libc`] instead of
@@ -39,10 +44,16 @@ decrease the minimum required Rust version, as C integer types were added
 to [`core::ffi`] only in version 1.64. The feature `signal` always enables
 `libc`.
 
-This crate is `no_std` when `libc` is not enabled.
+For development purposes, the feature `force-fallback` is provided. This
+forces the fallback implementation to be used for all atomics, which can
+help you ensure your program doesn’t rely on functionality only provided by
+the native atomic types. It should not normally be enabled outside of
+testing.
 
-[^1]: As long as the platform supports [`AtomicBool`], which is required
-      for the fallback implementation.
+Use without `std`
+-----------------
+
+This crate is `no_std` when `libc` is not enabled.
 
 [`libc`]: https://docs.rs/libc/0.2
 [`c_int`]: https://doc.rust-lang.org/stable/core/ffi/type.c_int.html
