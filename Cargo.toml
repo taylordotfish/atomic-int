@@ -1,6 +1,6 @@
 [package]
 name = "atomic-int"
-version = "0.1.5"
+version = "0.1.6-dev"
 edition = "2018"
 # If `libc` isn't enabled, the minimum supported Rust version is actually 1.64,
 # but there currently isn't a way to encode this in Cargo.toml. Also, libc
